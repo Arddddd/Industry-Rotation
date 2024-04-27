@@ -1,0 +1,773 @@
+import pandas as pd
+import numpy as np
+import os
+import matplotlib
+
+matplotlib.use('Agg')  # 设置不显示图片 必须在导入pyplot之前
+from matplotlib import pyplot as plt
+from matplotlib.pyplot import MultipleLocator
+
+plt.rcParams['font.sans-serif'] = ['SimHei']  # 指定默认字体
+plt.rcParams['axes.unicode_minus'] = False
+from pandas.plotting import register_matplotlib_converters
+
+register_matplotlib_converters()
+
+
+def get_plot(PBcalALL, BFcalALL, CLOSEcalALL, x, colname, dateset, filename):
+    '''画图'''
+    '''dateset：起始时间'''
+
+    fig = plt.figure(figsize=(10, 5), dpi=200)
+    ax = plt.gca()
+    ax2 = ax.twinx()
+    line1, = ax.plot(x, PBcalALL.loc[dateset:][colname], color='C1')
+    line2, = ax.plot(x, BFcalALL.loc[dateset:][colname], color='black')
+    ax.plot(x, [0] * len(x), dashes=[6, 2], color='grey')
+    line3, = ax2.plot(x, CLOSEcalALL.loc[dateset:][colname], color='C2')
+
+    # # 设置x和y轴的刻度
+    monthsLoc = matplotlib.dates.MonthLocator(interval=6)
+    ax.xaxis.set_major_locator(monthsLoc)
+
+    y_major_locator = MultipleLocator(0.5)
+    ax.yaxis.set_major_locator(y_major_locator)
+
+    fig.autofmt_xdate()  # 开启自适应
+    plt.title(colname + '_截止' + filename[-4:-2] + '/' + filename[-2:])
+    plt.legend((line1, line2, line3), ('估值 ' + colname, '景气度 ' + colname, '相对全A收益(右轴) ' + colname),
+               loc='lower center',
+               bbox_to_anchor=(0.5, -0.25), ncol=3)
+    if dateset == str(PBcalALL.index[0]):
+        if PBcalALL[colname].values[-1] >= 0:
+            if BFcalALL[colname].values[-1] >= BFcalALL[colname].values[-2]:
+                plt.savefig(filename + '\\' + '估值大于0' + '\\' + '景气度上升' + '\\' + colname + '_全时段',
+                            dpi=200)
+            else:
+                plt.savefig(filename + '\\' + '估值大于0' + '\\' + '景气度下降' + '\\' + colname + '_全时段',
+                            dpi=200)
+        else:
+            if BFcalALL[colname].values[-1] >= BFcalALL[colname].values[-2]:
+                plt.savefig(filename + '\\' + '估值小于0' + '\\' + '景气度上升' + '\\' + colname + '_全时段',
+                            dpi=200)
+            else:
+                plt.savefig(filename + '\\' + '估值小于0' + '\\' + '景气度下降' + '\\' + colname + '_全时段',
+                            dpi=200)
+    else:
+        plt.savefig(filename + r'\\' + colname + '_近期')
+    plt.close()  # 覆盖同名文件
+
+
+def get_plot_ind(PBcalALL, BFcalALL, CLOSEcalALL, x, colname, dateset, filename):
+    '''画图'''
+    '''dateset：起始时间'''
+
+    fig = plt.figure(figsize=(10, 3), dpi=200)
+    ax = plt.gca()
+    ax2 = ax.twinx()
+    line1, = ax.plot(x, PBcalALL.loc[dateset:][colname], color='C1')
+    line2, = ax.plot(x, BFcalALL.loc[dateset:][colname], color='black')
+    ax.plot(x, [0] * len(x), dashes=[6, 2], color='grey')
+    line3, = ax2.plot(x, CLOSEcalALL.loc[dateset:][colname], color='C2')
+
+    # # 设置x和y轴的刻度
+    monthsLoc = matplotlib.dates.MonthLocator(interval=6)
+    ax.xaxis.set_major_locator(monthsLoc)
+
+    y_major_locator = MultipleLocator(0.5)
+    ax.yaxis.set_major_locator(y_major_locator)
+
+    fig.autofmt_xdate()  # 开启自适应
+    plt.title(colname + '_截止' + filename[-4:-2] + '/' + filename[-2:])
+    plt.legend((line1, line2, line3), ('估值 ' + colname, '景气度 ' + colname, '相对全A收益(右轴) ' + colname),
+               loc='lower center',
+               bbox_to_anchor=(0.5, -0.25), ncol=3)
+    if dateset == str(PBcalALL.index[0]):
+        plt.savefig(colname + '\\' + filename)
+    else:
+        print('warning')
+    plt.close()  # 覆盖同名文件
+
+
+'''#################################################### 获取数据 ######################################################'''
+
+data_des = pd.read_hdf(r'AShareDescription.h5')
+
+eod_list = os.listdir('AShareEOD')
+eod_list.sort()
+eod = pd.DataFrame()
+for file in eod_list:
+    eodtemp = pd.read_hdf(r'AShareEOD' + '\\' + file)
+    print(file)
+    eod = pd.concat([eod, eodtemp]).reset_index(drop=True)
+now_date = eod['TRADE_DT'].max()
+
+eod['NET_ASSET'] = eod['S_VAL_MV'] / eod['S_VAL_PB_NEW']  # 净资产(LF)=当日总市值/市净率
+eod['S_DQ_ADJCLOSE'] = [x if pd.isnull(x) else round(x, 2) for x in eod['S_DQ_ADJCLOSE']]
+eod['S_VAL_MV'] = [x if pd.isnull(x) else round(x, 2) for x in eod['S_VAL_MV']]
+eod['S_DQ_MV'] = [x if pd.isnull(x) else round(x, 2) for x in eod['S_DQ_MV']]
+eod['TOT_SHR_TODAY'] = [x if pd.isnull(x) else round(x, 2) for x in eod['TOT_SHR_TODAY']]
+eod['NET_ASSET'] = [x if pd.isnull(x) else round(x, 2) for x in eod['NET_ASSET']]
+eod['S_VAL_PE_TTM'] = [x if pd.isnull(x) else round(x, 2) for x in eod['S_VAL_PE_TTM']]
+# eod['FLOAT_A_SHR_TODAY'] = [x if pd.isnull(x) else round(x, 2) for x in eod['FLOAT_A_SHR_TODAY']]
+# eod['S_VAL_PB_NEW'] = [x if pd.isnull(x) else round(x, 2) for x in eod['S_VAL_PB_NEW']]
+
+
+pebf_list = os.listdir('gdsForecast')
+pebf_list.sort()
+pebf = pd.DataFrame()
+for file in pebf_list:
+    pebftemp = pd.read_hdf(r'gdsForecast' + '\\' + file)
+    print(file)
+    pebf = pd.concat([pebf, pebftemp]).reset_index(drop=True)
+pebf['EST_PE'] = [round(x, 2) for x in pebf['EST_PE']]
+
+# # 周频日期索引 !!!!!!!!!!
+weeklistdf = pd.read_excel(r'weeklist.xlsx', dtype={'weeklist': str})  # ##################### 该数据手动更新到2024年底
+PEBF12 = pebf.pivot_table(values='EST_PE', index='EST_DT', columns='S_INFO_WINDCODE')
+PEBF12.index = PEBF12.index.astype(str)
+PEBF12 = PEBF12[PEBF12.index.isin(weeklistdf['weeklist'])]
+
+# eod['S_VAL_PE_TTM'] = [x if pd.isnull(x) else round(x, 2) for x in eod['S_VAL_PE_TTM']]
+PEttm = eod.pivot_table(values='S_VAL_PE_TTM', index='TRADE_DT', columns='S_INFO_WINDCODE')
+PEttm.index = PEttm.index.astype(str)
+PEttm = PEttm[PEttm.index.isin(PEBF12.index)]
+weeklist = PEttm.index
+
+stocks = pd.read_excel(r'全A_市值' + str(40) + '亿_评级机构数' + str(5) + '家_stocks.xlsx')
+
+# # 日行情数据换周频
+close_df = eod.pivot_table(values='S_DQ_ADJCLOSE', index='TRADE_DT', columns='S_INFO_WINDCODE')
+valmv_df = eod.pivot_table(values='S_VAL_MV', index='TRADE_DT', columns='S_INFO_WINDCODE')
+dqmv_df = eod.pivot_table(values='S_DQ_MV', index='TRADE_DT', columns='S_INFO_WINDCODE')
+flsh_df = eod.pivot_table(values='TOT_SHR_TODAY', index='TRADE_DT', columns='S_INFO_WINDCODE')  # FLOAT_A_SHR_TODAY
+na_df = eod.pivot_table(values='NET_ASSET', index='TRADE_DT', columns='S_INFO_WINDCODE')
+
+close_df = close_df[close_df.index.isin(weeklist)]
+valmv_df = valmv_df[valmv_df.index.isin(weeklist)]
+dqmv_df = dqmv_df[dqmv_df.index.isin(weeklist)]
+flsh_df = flsh_df[flsh_df.index.isin(weeklist)]
+na_df = na_df[na_df.index.isin(weeklist)]
+
+WindA_close = pd.read_excel(r'WindA_close_temp.xlsx', index_col=0)
+WindA_close.index = [str(x) for x in WindA_close.index]
+WindA_close = WindA_close[WindA_close.index.isin(weeklist)]
+WindA = WindA_close.pct_change(1)
+
+'''####################################################  跑图  ######################################################'''
+
+
+def cal_citics2():
+    indname = '中信二级'
+    data_citics2 = pd.read_hdf('AINDEXMEMBERSCITICS2.h5')
+    data_citics2 = data_citics2[data_citics2['S_INFO_WINDCODE'].isin(stocks['S_INFO_WINDCODE'])]
+    # # 板块内成分股数量 secnums=5
+    temp = data_citics2.groupby(data_citics2['SECNAME']).agg('count')
+    temp = temp.reset_index()
+    temp.rename(columns={'S_INFO_WINDCODE': 'secnums'}, inplace=True)
+    data_citics2 = data_citics2.merge(temp, on='SECNAME', how='left')
+    data_citics2 = data_citics2[data_citics2['secnums'] >= 5]
+
+    # # 筛选成分股>30时板块里流通市值大小排名前75%的成分股 20230331
+    data_citics2 = data_citics2.merge(stocks[['S_INFO_WINDCODE', 'S_DQ_MV']], on='S_INFO_WINDCODE',
+                                      how='left').sort_values(
+        ['SECNAME', 'S_DQ_MV'], ascending=[True, False]).reset_index(drop=True)
+
+    def get_tenpercent(df):
+        df['percent'] = pd.qcut(df['S_DQ_MV'], 4, labels=False)
+        return df
+
+    data_citics2 = data_citics2.groupby('SECNAME').apply(lambda x: get_tenpercent(x))
+    data_citics_temp1 = data_citics2[(data_citics2['percent'] != 0) & (data_citics2['secnums'] > 30)].copy()
+    data_citics_temp2 = data_citics2[(data_citics2['secnums'] <= 30)].copy()
+    data_citics2 = pd.concat([data_citics_temp1, data_citics_temp2])
+    data_citics2 = data_citics2[['SECNAME', 'S_INFO_WINDCODE']].reset_index(drop=True)
+
+    # 整理最后筛选出的板块及成分股
+    data_citics2 = data_citics2.merge(data_des, on='S_INFO_WINDCODE', how='left')
+    indnames = pd.read_excel(r'行业代码.xlsx', sheet_name=indname)
+    indnames.columns = ['SECNAME', '行业名称']
+    data_citics2 = data_citics2.merge(indnames, on='SECNAME', how='left')
+
+    # # 创建文件夹
+    os.mkdir(indname + now_date)
+    os.mkdir(indname + now_date + '\\' + '估值大于0')
+    os.mkdir(indname + now_date + '\\' + '估值大于0' + '\\' + '景气度上升')
+    os.mkdir(indname + now_date + '\\' + '估值大于0' + '\\' + '景气度下降')
+    os.mkdir(indname + now_date + '\\' + '估值小于0')
+    os.mkdir(indname + now_date + '\\' + '估值小于0' + '\\' + '景气度上升')
+    os.mkdir(indname + now_date + '\\' + '估值小于0' + '\\' + '景气度下降')
+    print('###### 中信二级 ######：', now_date)
+
+    secnames = data_citics2['SECNAME'].drop_duplicates().values  # ############################################# 核心差别
+
+    # ### CLOSEcalALL：收盘价(流通股本加权平均)=∑[成份股.流通股本/∑(成份股.流通股本)*收盘价]
+    CLOSEALL = pd.DataFrame()
+    for secname in secnames:
+        closetemp = close_df[data_citics2[data_citics2['SECNAME'] == secname]['S_INFO_WINDCODE']].copy()
+        flshtemp = flsh_df[data_citics2[data_citics2['SECNAME'] == secname]['S_INFO_WINDCODE']].copy()
+        sectemp = (closetemp * (flshtemp.div(flshtemp.sum(axis=1), axis=0))).sum(axis=1)
+        CLOSEALL = pd.concat([CLOSEALL, pd.DataFrame(sectemp, columns={secname})], axis=1)
+
+    CLOSEcalALL = CLOSEALL / CLOSEALL.shift(1)
+    CLOSEcalALL = CLOSEcalALL.replace(float('inf'), np.nan)
+    CLOSEcalALL = CLOSEcalALL.sub(WindA['S_DQ_CLOSE'], axis=0)
+    for secname in CLOSEcalALL.columns:
+        sectempall = CLOSEcalALL[secname].dropna()
+        CLOSEcalALL.loc[list(CLOSEcalALL.index)[list(CLOSEcalALL.index).index(sectempall.index[0]) - 1], secname] = 1
+    CLOSEcalALL = CLOSEcalALL.cumprod()
+    CLOSEcalALL = CLOSEcalALL.fillna(0)
+
+    # ### PBcalALL：市净率PB(LF)=∑(成分股,当日总市值)/∑(成分股,净资产(最新报告期LF))
+    PBALL = pd.DataFrame()
+    for secname in secnames:
+        valmvtemp = valmv_df[data_citics2[data_citics2['SECNAME'] == secname]['S_INFO_WINDCODE']].copy()
+        natemp = na_df[data_citics2[data_citics2['SECNAME'] == secname]['S_INFO_WINDCODE']].copy()
+        sectemp = valmvtemp.sum(axis=1) / (natemp.sum(axis=1))
+        PBALL = pd.concat([PBALL, pd.DataFrame(sectemp, columns={secname})], axis=1)
+
+    # # 预处理
+    sectorPBALL = PBALL.div(PBALL.mean(axis=1), axis=0)
+    # # 计算z值
+    sectorPBALL_mean1 = sectorPBALL.rolling(12).mean()
+    sectorPBALL_mean2 = sectorPBALL.rolling(252).mean()
+    sectorPBALL_std = sectorPBALL.rolling(252).std()
+    PBcalALL = (sectorPBALL_mean1 - sectorPBALL_mean2) / sectorPBALL_std
+    PBcalALL = PBcalALL.dropna(how='all')
+
+    # ### BFcalALL
+    stocklist = list(data_citics2['S_INFO_WINDCODE'].drop_duplicates().values)
+    for xx in stocklist:
+        if (not xx in PEttm.columns) or (not xx in PEBF12.columns):
+            stocklist.remove(xx)
+            data_citics2 = data_citics2[data_citics2['S_INFO_WINDCODE'] != xx].reset_index(drop=True)
+    data_citics2_new = data_citics2[['SECNAME', 'S_INFO_WINDCODE', 'S_INFO_NAME', '行业名称']]
+    data_citics2_new.to_excel(r'个股代码_' + indname + '_' + now_date + '.xlsx', index=False)
+    PEttmdf = PEttm[stocklist]
+    PEBF12df = PEBF12[stocklist]
+
+    '''BF12yoy'''
+    PEttmdf = pd.DataFrame(
+        np.where(PEttmdf < 0, np.nan, PEttmdf))  ##############################################  剔除为负的
+    PEttmdf.columns = PEBF12df.columns
+    PEttmdf.index = PEBF12df.index
+
+    BF12yoy = PEttmdf / PEBF12df - 1
+    BF12yoy = np.where(BF12yoy > 1, 1, BF12yoy)
+    BF12yoy = pd.DataFrame(np.where(BF12yoy < -1, -1, BF12yoy))  # 给±100%的上下限
+    BF12yoy.index = PEBF12df.index
+    BF12yoy.columns = PEBF12df.columns
+
+    BFALL = pd.DataFrame()
+    for secname in secnames:
+        bf12yoytemp = BF12yoy[data_citics2[data_citics2['SECNAME'] == secname]['S_INFO_WINDCODE']].copy()
+        sectemp = bf12yoytemp.mean(axis=1)
+        BFALL = pd.concat([BFALL, pd.DataFrame(sectemp, columns={secname})], axis=1)
+
+    # # 预处理
+    sectorBF12yoy = BFALL.div(BFALL.mean(axis=1), axis=0)
+    # # 计算z值
+    sectorBF12yoy_mean1 = sectorBF12yoy.rolling(24).mean()
+    sectorBF12yoy_mean2 = sectorBF12yoy.rolling(263).mean()
+    sectorBF12yoy_std = sectorBF12yoy.rolling(263).std()
+    BFcalALL = (sectorBF12yoy_mean1 - sectorBF12yoy_mean2) / sectorBF12yoy_std
+    BFcalALL = BFcalALL.dropna(how='all')
+
+    '''################################################### 画图 #################################################### '''
+
+    # # 选最短的时间当横坐标
+    if PBcalALL.shape[0] >= BFcalALL.shape[0]:
+        PBcalALL = PBcalALL[PBcalALL.index.isin(BFcalALL.index)]
+    else:
+        BFcalALL = BFcalALL[BFcalALL.index.isin(PBcalALL.index)]
+    CLOSEcalALL = CLOSEcalALL[CLOSEcalALL.index.isin(PBcalALL.index)]
+
+    PBcalALL = PBcalALL.stack().reset_index()
+    PBcalALL.rename(columns={'level_1': 'SECNAME'}, inplace=True)
+    PBcalALL = PBcalALL.merge(indnames, on='SECNAME', how='left')
+    PBcalALL = PBcalALL.pivot_table(values=0, index='TRADE_DT', columns='行业名称')
+
+    BFcalALL = BFcalALL.stack().reset_index()
+    BFcalALL.rename(columns={'level_1': 'SECNAME'}, inplace=True)
+    BFcalALL = BFcalALL.merge(indnames, on='SECNAME', how='left')
+    BFcalALL = BFcalALL.pivot_table(values=0, index='EST_DT', columns='行业名称')
+
+    CLOSEcalALL = CLOSEcalALL.stack().reset_index()
+    CLOSEcalALL.rename(columns={'level_1': 'SECNAME'}, inplace=True)
+    CLOSEcalALL = CLOSEcalALL.merge(indnames, on='SECNAME', how='left')
+    CLOSEcalALL = CLOSEcalALL.pivot_table(values=0, index='TRADE_DT', columns='行业名称')
+
+    # # 排序打分
+    # bf_df = temp1.diff(1) / abs(temp1.shift(1))
+    bf_df = BFcalALL.rolling(3).mean() - BFcalALL.rolling(12).mean()
+    bf = pd.DataFrame(bf_df.iloc[len(bf_df) - 1]).reset_index()
+    pb = pd.DataFrame(PBcalALL.iloc[len(bf_df) - 1]).reset_index()
+    bf_pb = bf.merge(pb, on='行业名称', how='inner')
+    bf_pb.columns = ['中信二级', '景气度', '估值']
+    bf_pb['景气度'] = (bf_pb['景气度'] - bf_pb['景气度'].mean()) / (bf_pb['景气度'].std())
+    bf_pb['估值'] = (bf_pb['估值'] - bf_pb['估值'].mean()) / (bf_pb['估值'].std())
+    bf_pb['打分'] = bf_pb['景气度'] * 0.7 + bf_pb['估值'] * (-0.3)
+    bf_pb = bf_pb.sort_values('打分', ascending=False)
+
+    writer = pd.ExcelWriter(r'Statistics' + '\\' + indname + now_date + '.xlsx')
+    bf_pb.to_excel(writer, sheet_name='打分', index=False)
+    PBcalALL.to_excel(writer, sheet_name='PBcalALL')
+    BFcalALL.to_excel(writer, sheet_name='BFcalALL')
+    CLOSEcalALL.to_excel(writer, sheet_name='CLOSEcalALL')
+    writer.close()
+
+    '''
+    # 无更新的话从这开始run就行了
+    PBcalALL = pd.read_excel(r'result.xlsx', sheet_name='PBcalALL', index_col=0)
+    BFcalALL = pd.read_excel(r'result.xlsx', sheet_name='BFcalALL', index_col=0)
+    CLOSEcalALL = pd.read_excel(r'result.xlsx', sheet_name='CLOSEcalALL', index_col=0)
+    '''
+
+    for i in PBcalALL.columns:  # 全时段
+        print('中信二级', i)
+        get_plot(PBcalALL, BFcalALL, CLOSEcalALL, pd.to_datetime(PBcalALL.index.astype(str)), i, str(PBcalALL.index[0]),
+                 indname + now_date)
+
+    print('-----中信二级-----', now_date)
+    # else:
+    #     print('###### 无更新 ######')
+
+
+def cal_citics1():
+    indname = '中信一级'
+    data_citics = pd.read_hdf('AINDEXMEMBERSCITICS.h5')
+
+    # 个股流通市值大于50亿
+    data_citics = data_citics[
+        data_citics['S_INFO_WINDCODE'].isin(stocks[stocks['S_DQ_MV'] >= 500000]['S_INFO_WINDCODE'])]
+
+    # # 板块内成分股数量 secnums≥10
+    temp = data_citics.groupby(data_citics['SECNAME']).agg('count')
+    data_citics = data_citics[data_citics['SECNAME'].isin(temp[temp['S_INFO_WINDCODE'] >= 10].index)]
+
+    # # 筛选板块里流通市值大小排名前75%的成分股 20230331  ### 50%
+    data_citics = data_citics.merge(stocks[['S_INFO_WINDCODE', 'S_DQ_MV']], on='S_INFO_WINDCODE',
+                                    how='left').sort_values(
+        ['SECNAME', 'S_DQ_MV'], ascending=[True, False]).reset_index(drop=True)
+
+    def get_tenpercent(df):
+        df['percent'] = pd.qcut(df['S_DQ_MV'], 4, labels=False)
+        return df
+
+    data_citics = data_citics.groupby('SECNAME').apply(lambda x: get_tenpercent(x))
+    data_citics = data_citics[data_citics['percent'] != 0]
+
+    # 整理最后筛选出的板块及成分股
+    data_citics = data_citics.merge(data_des, on='S_INFO_WINDCODE', how='left')
+    indnames = pd.read_excel(r'行业代码.xlsx', sheet_name=indname)
+    indnames.columns = ['SECNAME', '行业名称']
+    data_citics = data_citics.merge(indnames, on='SECNAME', how='left')
+
+    # # 创建文件夹
+    os.mkdir(indname + now_date)
+    os.mkdir(indname + now_date + '\\' + '估值大于0')
+    os.mkdir(indname + now_date + '\\' + '估值大于0' + '\\' + '景气度上升')
+    os.mkdir(indname + now_date + '\\' + '估值大于0' + '\\' + '景气度下降')
+    os.mkdir(indname + now_date + '\\' + '估值小于0')
+    os.mkdir(indname + now_date + '\\' + '估值小于0' + '\\' + '景气度上升')
+    os.mkdir(indname + now_date + '\\' + '估值小于0' + '\\' + '景气度下降')
+    print('###### 中信一级 ######：', now_date)
+
+    secnames = data_citics['SECNAME'].drop_duplicates().values  # ############################################# 核心差别
+
+    # ### CLOSEcalALL：收盘价(流通股本加权平均)=∑[成份股.流通股本/∑(成份股.流通股本)*收盘价]
+    CLOSEALL = pd.DataFrame()
+    for secname in secnames:
+        closetemp = close_df[data_citics[data_citics['SECNAME'] == secname]['S_INFO_WINDCODE']].copy()
+        flshtemp = flsh_df[data_citics[data_citics['SECNAME'] == secname]['S_INFO_WINDCODE']].copy()
+        sectemp = (closetemp * (flshtemp.div(flshtemp.sum(axis=1), axis=0))).sum(axis=1)
+        CLOSEALL = pd.concat([CLOSEALL, pd.DataFrame(sectemp, columns={secname})], axis=1)
+
+    CLOSEcalALL = CLOSEALL / CLOSEALL.shift(1)
+    CLOSEcalALL = CLOSEcalALL.sub(WindA['S_DQ_CLOSE'], axis=0)
+    CLOSEcalALL.loc['20100108'] = 1
+    CLOSEcalALL = CLOSEcalALL.cumprod()
+
+    # ### PBcalALL：市净率PB(LF)=∑(成分股,当日总市值)/∑(成分股,净资产(最新报告期LF))
+    PBALL = pd.DataFrame()
+    for secname in secnames:
+        valmvtemp = valmv_df[data_citics[data_citics['SECNAME'] == secname]['S_INFO_WINDCODE']].copy()
+        natemp = na_df[data_citics[data_citics['SECNAME'] == secname]['S_INFO_WINDCODE']].copy()
+        sectemp = valmvtemp.sum(axis=1) / (natemp.sum(axis=1))
+        PBALL = pd.concat([PBALL, pd.DataFrame(sectemp, columns={secname})], axis=1)
+
+    # # 预处理
+    sectorPBALL = PBALL.div(PBALL.mean(axis=1), axis=0)
+    # # 计算z值
+    sectorPBALL_mean1 = sectorPBALL.rolling(12).mean()
+    sectorPBALL_mean2 = sectorPBALL.rolling(252).mean()
+    sectorPBALL_std = sectorPBALL.rolling(252).std()
+    PBcalALL = (sectorPBALL_mean1 - sectorPBALL_mean2) / sectorPBALL_std
+    PBcalALL = PBcalALL.dropna(how='all')
+
+    # ### BFcalALL
+    stocklist = list(data_citics['S_INFO_WINDCODE'].drop_duplicates().values)
+    for xx in stocklist:
+        if (not xx in PEttm.columns) or (not xx in PEBF12.columns):
+            stocklist.remove(xx)
+            data_citics = data_citics[data_citics['S_INFO_WINDCODE'] != xx].reset_index(drop=True)
+    data_citics_new = data_citics[['SECNAME', 'S_INFO_WINDCODE', 'S_INFO_NAME', '行业名称']]
+    data_citics_new.to_excel(r'个股代码_' + indname + '_' + now_date + '.xlsx', index=False)
+    PEttmdf = PEttm[stocklist]
+    PEBF12df = PEBF12[stocklist]
+
+    '''BF12yoy'''
+    PEttmdf = pd.DataFrame(
+        np.where(PEttmdf < 0, np.nan, PEttmdf))  ##############################################  剔除为负的
+    PEttmdf.columns = PEBF12df.columns
+    PEttmdf.index = PEBF12df.index
+
+    BF12yoy = PEttmdf / PEBF12df - 1
+    BF12yoy = np.where(BF12yoy > 1, 1, BF12yoy)
+    BF12yoy = pd.DataFrame(np.where(BF12yoy < -1, -1, BF12yoy))  # 给±100%的上下限
+    BF12yoy.index = weeklist
+    BF12yoy.columns = PEBF12df.columns
+
+    BFALL = pd.DataFrame()
+    for secname in secnames:
+        bf12yoytemp = BF12yoy[data_citics[data_citics['SECNAME'] == secname]['S_INFO_WINDCODE']].copy()
+        sectemp = bf12yoytemp.mean(axis=1)
+        BFALL = pd.concat([BFALL, pd.DataFrame(sectemp, columns={secname})], axis=1)
+
+    # # 预处理
+    sectorBF12yoy = BFALL.div(BFALL.mean(axis=1), axis=0)
+    # # 计算z值
+    sectorBF12yoy_mean1 = sectorBF12yoy.rolling(24).mean()
+    sectorBF12yoy_mean2 = sectorBF12yoy.rolling(263).mean()
+    sectorBF12yoy_std = sectorBF12yoy.rolling(263).std()
+    BFcalALL = (sectorBF12yoy_mean1 - sectorBF12yoy_mean2) / sectorBF12yoy_std
+    BFcalALL = BFcalALL.dropna(how='all')
+
+    '''################################################### 画图 #################################################### '''
+
+    # # 选最短的时间当横坐标
+    if PBcalALL.shape[0] >= BFcalALL.shape[0]:
+        PBcalALL = PBcalALL[PBcalALL.index.isin(BFcalALL.index)]
+    else:
+        BFcalALL = BFcalALL[BFcalALL.index.isin(PBcalALL.index)]
+    CLOSEcalALL = CLOSEcalALL[CLOSEcalALL.index.isin(PBcalALL.index)]
+
+    PBcalALL = PBcalALL.stack().reset_index()
+    PBcalALL.rename(columns={'level_1': 'SECNAME'}, inplace=True)
+    PBcalALL = PBcalALL.merge(indnames, on='SECNAME', how='left')
+    PBcalALL = PBcalALL.pivot_table(values=0, index='TRADE_DT', columns='行业名称')
+
+    BFcalALL = BFcalALL.stack().reset_index()
+    BFcalALL.rename(columns={'level_1': 'SECNAME'}, inplace=True)
+    BFcalALL = BFcalALL.merge(indnames, on='SECNAME', how='left')
+    BFcalALL = BFcalALL.pivot_table(values=0, index='TRADE_DT', columns='行业名称')
+
+    CLOSEcalALL = CLOSEcalALL.stack().reset_index()
+    CLOSEcalALL.rename(columns={'level_1': 'SECNAME'}, inplace=True)
+    CLOSEcalALL = CLOSEcalALL.merge(indnames, on='SECNAME', how='left')
+    CLOSEcalALL = CLOSEcalALL.pivot_table(values=0, index='TRADE_DT', columns='行业名称')
+
+    writer = pd.ExcelWriter(indname + now_date + r'\\' + 'result.xlsx')
+    PBcalALL.to_excel(writer, sheet_name='PBcalALL')
+    BFcalALL.to_excel(writer, sheet_name='BFcalALL')
+    CLOSEcalALL.to_excel(writer, sheet_name='CLOSEcalALL')
+    writer.close()
+
+    for i in PBcalALL.columns:  # 全时段
+        print('中信一级', i)
+        get_plot(PBcalALL, BFcalALL, CLOSEcalALL, pd.to_datetime(PBcalALL.index.astype(str)), i, str(PBcalALL.index[0]),
+                 indname + now_date)
+
+    print('-----中信一级-----', now_date)
+    # else:
+    #     print('###### 无更新 ######')
+
+
+def cal_concept():
+    indname = '概念'
+    data_concept = pd.read_hdf('AShareConseption.h5')
+    data_concept = data_concept[
+        data_concept['S_INFO_WINDCODE'].isin(stocks[stocks['S_DQ_MV'] >= 500000]['S_INFO_WINDCODE'])]
+    # # 板块内成分股数量 secnums≥20
+    temp = data_concept.groupby(data_concept['SECNAME']).agg('count')
+    data_concept = data_concept[data_concept['SECNAME'].isin(temp[temp['S_INFO_WINDCODE'] >= 20].index)]
+
+    # # 筛选板块里流通市值大小排名前50%的成分股
+    data_concept = data_concept.merge(stocks[['S_INFO_WINDCODE', 'S_DQ_MV']], on='S_INFO_WINDCODE',
+                                      how='left').sort_values(
+        ['SECNAME', 'S_DQ_MV'], ascending=[True, False]).reset_index(drop=True)
+
+    def get_tenpercent(df):
+        df['percent'] = pd.qcut(df['S_DQ_MV'], 2, labels=False)
+        return df
+
+    data_concept = data_concept.groupby('SECNAME').apply(lambda x: get_tenpercent(x))
+    data_concept = data_concept[data_concept['percent'] == 1]
+
+    # 整理最后筛选出的板块及成分股
+    data_concept = data_concept.merge(data_des, on='S_INFO_WINDCODE', how='left')
+    data_concept['SECNAME'] = data_concept['SECNAME'].str.replace('.', '', regex=False)
+
+    # # 创建文件夹
+    os.mkdir(indname + now_date)
+    os.mkdir(indname + now_date + '\\' + '估值大于0')
+    os.mkdir(indname + now_date + '\\' + '估值大于0' + '\\' + '景气度上升')
+    os.mkdir(indname + now_date + '\\' + '估值大于0' + '\\' + '景气度下降')
+    os.mkdir(indname + now_date + '\\' + '估值小于0')
+    os.mkdir(indname + now_date + '\\' + '估值小于0' + '\\' + '景气度上升')
+    os.mkdir(indname + now_date + '\\' + '估值小于0' + '\\' + '景气度下降')
+    print('###### 概念 ######：', now_date)
+
+    secnames = data_concept['SECNAME'].drop_duplicates().values  # ############################################# 核心差别
+
+    # ### CLOSEcalALL：收盘价(流通股本加权平均)=∑[成份股.流通股本/∑(成份股.流通股本)*收盘价]
+    CLOSEALL = pd.DataFrame()
+    for secname in secnames:
+        closetemp = close_df[data_concept[data_concept['SECNAME'] == secname]['S_INFO_WINDCODE']].copy()
+        flshtemp = flsh_df[data_concept[data_concept['SECNAME'] == secname]['S_INFO_WINDCODE']].copy()
+        sectemp = (closetemp * (flshtemp.div(flshtemp.sum(axis=1), axis=0))).sum(axis=1)
+        CLOSEALL = pd.concat([CLOSEALL, pd.DataFrame(sectemp, columns={secname})], axis=1)
+
+    CLOSEcalALL = CLOSEALL / CLOSEALL.shift(1)
+    CLOSEcalALL = CLOSEcalALL.sub(WindA['S_DQ_CLOSE'], axis=0)
+    CLOSEcalALL.loc['20100108'] = 1
+    CLOSEcalALL = CLOSEcalALL.cumprod()
+
+    # ### PBcalALL：市净率PB(LF)=∑(成分股,当日总市值)/∑(成分股,净资产(最新报告期LF))
+    PBALL = pd.DataFrame()
+    for secname in secnames:
+        valmvtemp = valmv_df[data_concept[data_concept['SECNAME'] == secname]['S_INFO_WINDCODE']].copy()
+        natemp = na_df[data_concept[data_concept['SECNAME'] == secname]['S_INFO_WINDCODE']].copy()
+        sectemp = valmvtemp.sum(axis=1) / (natemp.sum(axis=1))
+        PBALL = pd.concat([PBALL, pd.DataFrame(sectemp, columns={secname})], axis=1)
+    # # 预处理
+    sectorPBALL = PBALL.div(PBALL.mean(axis=1), axis=0)
+    # # 计算z值
+    sectorPBALL_mean1 = sectorPBALL.rolling(12).mean()
+    sectorPBALL_mean2 = sectorPBALL.rolling(252).mean()
+    sectorPBALL_std = sectorPBALL.rolling(252).std()
+    PBcalALL = (sectorPBALL_mean1 - sectorPBALL_mean2) / sectorPBALL_std
+    PBcalALL = PBcalALL.dropna(how='all')
+
+    # ### BFcalALL
+    stocklist = list(data_concept['S_INFO_WINDCODE'].drop_duplicates().values)
+    for xx in stocklist:
+        if (not xx in PEttm.columns) or (not xx in PEBF12.columns):
+            stocklist.remove(xx)
+            data_concept = data_concept[data_concept['S_INFO_WINDCODE'] != xx].reset_index(drop=True)
+    data_concept_new = data_concept[['SECNAME', 'S_INFO_WINDCODE', 'S_INFO_NAME']]
+    data_concept_new.to_excel(r'个股代码_' + indname + '_' + now_date + '.xlsx', index=False)
+    PEttmdf = PEttm[stocklist]
+    PEBF12df = PEBF12[stocklist]
+
+    '''BF12yoy'''
+    PEttmdf = pd.DataFrame(
+        np.where(PEttmdf < 0, np.nan, PEttmdf))  ##############################################  剔除为负的
+    PEttmdf.columns = PEBF12df.columns
+    PEttmdf.index = PEBF12df.index
+
+    BF12yoy = PEttmdf / PEBF12df - 1
+    BF12yoy = np.where(BF12yoy > 1, 1, BF12yoy)
+    BF12yoy = pd.DataFrame(np.where(BF12yoy < -1, -1, BF12yoy))  # 给±100%的上下限
+    BF12yoy.index = weeklist
+    BF12yoy.columns = PEBF12df.columns
+
+    BFALL = pd.DataFrame()
+    for secname in secnames:
+        bf12yoytemp = BF12yoy[data_concept[data_concept['SECNAME'] == secname]['S_INFO_WINDCODE']].copy()
+        sectemp = bf12yoytemp.mean(axis=1)
+        BFALL = pd.concat([BFALL, pd.DataFrame(sectemp, columns={secname})], axis=1)
+
+    # # 预处理
+    sectorBF12yoy = BFALL.div(BFALL.mean(axis=1), axis=0)
+    # # 计算z值
+    sectorBF12yoy_mean1 = sectorBF12yoy.rolling(24).mean()
+    sectorBF12yoy_mean2 = sectorBF12yoy.rolling(263).mean()
+    sectorBF12yoy_std = sectorBF12yoy.rolling(263).std()
+    BFcalALL = (sectorBF12yoy_mean1 - sectorBF12yoy_mean2) / sectorBF12yoy_std
+    BFcalALL = BFcalALL.dropna(how='all')
+
+    '''################################################### 画图 #################################################### '''
+
+    # # 选最短的时间当横坐标
+    if PBcalALL.shape[0] >= BFcalALL.shape[0]:
+        PBcalALL = PBcalALL[PBcalALL.index.isin(BFcalALL.index)]
+    else:
+        BFcalALL = BFcalALL[BFcalALL.index.isin(PBcalALL.index)]
+    CLOSEcalALL = CLOSEcalALL[CLOSEcalALL.index.isin(PBcalALL.index)]
+
+    writer = pd.ExcelWriter(indname + now_date + r'\\' + 'result.xlsx')
+    PBcalALL.to_excel(writer, sheet_name='PBcalALL')
+    BFcalALL.to_excel(writer, sheet_name='BFcalALL')
+    CLOSEcalALL.to_excel(writer, sheet_name='CLOSEcalALL')
+    writer.close()
+
+    for i in PBcalALL.columns:  # 全时段
+        print('概念', i)
+        get_plot(PBcalALL, BFcalALL, CLOSEcalALL, pd.to_datetime(PBcalALL.index.astype(str)), i, str(PBcalALL.index[0]),
+                 indname + now_date)
+
+    print('-----概念-----', now_date)
+    # else:
+    #     print('###### 无更新 ######')
+
+
+def cal_citics3_ind(seid='CI005284.WI'):
+    indname = '中信三级'
+    data_citics3 = pd.read_hdf('AINDEXMEMBERSCITICS3.h5')
+
+    data_citics3 = data_citics3[data_citics3['SECNAME'] == seid].copy()  # 风电
+
+    # 个股总市值大于100亿
+    data_citics = data_citics3[
+        data_citics3['S_INFO_WINDCODE'].isin(stocks[stocks['S_VAL_MV'] >= 1000000]['S_INFO_WINDCODE'])]
+
+    # # # 板块内成分股数量 secnums≥10
+    # temp = data_citics3.groupby(data_citics3['SECNAME']).agg('count')
+    # data_citics = data_citics3[data_citics3['SECNAME'].isin(temp[temp['S_INFO_WINDCODE'] >= 5].index)]
+    #
+    # # # 筛选板块里流通市值大小排名前50%的成分股
+    # data_citics = data_citics.merge(stocks[['S_INFO_WINDCODE', 'S_DQ_MV']], on='S_INFO_WINDCODE',
+    #                                 how='left').sort_values(
+    #     ['SECNAME', 'S_DQ_MV'], ascending=[True, False]).reset_index(drop=True)
+    #
+    # def get_tenpercent(df):
+    #     df['percent'] = pd.qcut(df['S_DQ_MV'], 2, labels=False)
+    #     return df
+    #
+    # data_citics = data_citics.groupby('SECNAME').apply(lambda x: get_tenpercent(x))
+    # data_citics = data_citics[data_citics['percent'] == 1]
+
+    # 整理最后筛选出的板块及成分股
+    data_citics = data_citics.merge(data_des, on='S_INFO_WINDCODE', how='left')
+    indnames = pd.read_excel(r'行业代码.xlsx', sheet_name=indname)
+    indnames.columns = ['SECNAME', '行业名称']
+    data_citics = data_citics.merge(indnames, on='SECNAME', how='left')
+    ind_sec_name = data_citics['行业名称'][0]
+    # # # 创建文件夹
+    # os.mkdir(indname + now_date)
+    # os.mkdir(indname + now_date + '\\' + '景气度大于0')
+    # os.mkdir(indname + now_date + '\\' + '景气度大于0' + '\\' + '景气度上升')
+    # os.mkdir(indname + now_date + '\\' + '景气度大于0' + '\\' + '景气度下降')
+    # os.mkdir(indname + now_date + '\\' + '景气度小于0')
+    # os.mkdir(indname + now_date + '\\' + '景气度小于0' + '\\' + '景气度上升')
+    # os.mkdir(indname + now_date + '\\' + '景气度小于0' + '\\' + '景气度下降')
+    # print('###### 中信一级 ######：', now_date)
+
+    secnames = data_citics['SECNAME'].drop_duplicates().values  # ############################################# 核心差别
+
+    # ### CLOSEcalALL：收盘价(流通股本加权平均)=∑[成份股.流通股本/∑(成份股.流通股本)*收盘价]
+    CLOSEALL = pd.DataFrame()
+    for secname in secnames:
+        closetemp = close_df[data_citics[data_citics['SECNAME'] == secname]['S_INFO_WINDCODE']].copy()
+        flshtemp = flsh_df[data_citics[data_citics['SECNAME'] == secname]['S_INFO_WINDCODE']].copy()
+        sectemp = (closetemp * (flshtemp.div(flshtemp.sum(axis=1), axis=0))).sum(axis=1)
+        CLOSEALL = pd.concat([CLOSEALL, pd.DataFrame(sectemp, columns={secname})], axis=1)
+
+    CLOSEcalALL = CLOSEALL / CLOSEALL.shift(1)
+    CLOSEcalALL = CLOSEcalALL.sub(WindA['S_DQ_CLOSE'], axis=0)
+    CLOSEcalALL.loc['20100108'] = 1
+    CLOSEcalALL = CLOSEcalALL.cumprod()
+
+    # ### PBcalALL：市净率PB(LF)=∑(成分股,当日总市值)/∑(成分股,净资产(最新报告期LF))
+    PBALL = pd.DataFrame()
+    for secname in secnames:
+        valmvtemp = valmv_df[data_citics[data_citics['SECNAME'] == secname]['S_INFO_WINDCODE']].copy()
+        natemp = na_df[data_citics[data_citics['SECNAME'] == secname]['S_INFO_WINDCODE']].copy()
+        sectemp = valmvtemp.sum(axis=1) / (natemp.sum(axis=1))
+        PBALL = pd.concat([PBALL, pd.DataFrame(sectemp, columns={secname})], axis=1)
+
+    # # # 预处理
+    # sectorPBALL = PBALL.div(PBALL.mean(axis=1), axis=0)
+    sectorPBALL = PBALL.copy()
+    # # 计算z值
+    sectorPBALL_mean1 = sectorPBALL.rolling(12).mean()
+    sectorPBALL_mean2 = sectorPBALL.rolling(252).mean()
+    sectorPBALL_std = sectorPBALL.rolling(252).std()
+    PBcalALL = (sectorPBALL_mean1 - sectorPBALL_mean2) / sectorPBALL_std
+    PBcalALL = PBcalALL.dropna(how='all')
+
+    # ### BFcalALL
+    stocklist = list(data_citics['S_INFO_WINDCODE'].drop_duplicates().values)
+    for xx in stocklist:
+        if (not xx in PEttm.columns) or (not xx in PEBF12.columns):
+            stocklist.remove(xx)
+            data_citics = data_citics[data_citics['S_INFO_WINDCODE'] != xx].reset_index(drop=True)
+    data_citics_new = data_citics[['SECNAME', 'S_INFO_WINDCODE', 'S_INFO_NAME', '行业名称']]
+    data_citics_new.to_excel(r'个股代码_' + indname + '_' + now_date + '.xlsx', index=False)
+    PEttmdf = PEttm[stocklist]
+    PEBF12df = PEBF12[stocklist]
+
+    '''BF12yoy'''
+    PEttmdf = pd.DataFrame(
+        np.where(PEttmdf < 0, np.nan, PEttmdf))  ##############################################  剔除为负的
+    PEttmdf.columns = PEBF12df.columns
+    PEttmdf.index = PEBF12df.index
+
+    BF12yoy = PEttmdf / PEBF12df - 1
+    BF12yoy = np.where(BF12yoy > 1, 1, BF12yoy)
+    BF12yoy = pd.DataFrame(np.where(BF12yoy < -1, -1, BF12yoy))  # 给±100%的上下限
+    BF12yoy.index = weeklist
+    BF12yoy.columns = PEBF12df.columns
+
+    BFALL = pd.DataFrame()
+    for secname in secnames:
+        bf12yoytemp = BF12yoy[data_citics[data_citics['SECNAME'] == secname]['S_INFO_WINDCODE']].copy()
+        sectemp = bf12yoytemp.mean(axis=1)
+        BFALL = pd.concat([BFALL, pd.DataFrame(sectemp, columns={secname})], axis=1)
+
+    # # # 预处理
+    # sectorBF12yoy = BFALL.div(BFALL.mean(axis=1), axis=0)
+    sectorBF12yoy = BFALL.copy()
+    # # 计算z值
+    sectorBF12yoy_mean1 = sectorBF12yoy.rolling(24).mean()
+    sectorBF12yoy_mean2 = sectorBF12yoy.rolling(263).mean()
+    sectorBF12yoy_std = sectorBF12yoy.rolling(263).std()
+    BFcalALL = (sectorBF12yoy_mean1 - sectorBF12yoy_mean2) / sectorBF12yoy_std
+    BFcalALL = BFcalALL.dropna(how='all')
+
+    '''################################################### 画图 #################################################### '''
+
+    # # 选最短的时间当横坐标
+    if PBcalALL.shape[0] >= BFcalALL.shape[0]:
+        PBcalALL = PBcalALL[PBcalALL.index.isin(BFcalALL.index)]
+    else:
+        BFcalALL = BFcalALL[BFcalALL.index.isin(PBcalALL.index)]
+    CLOSEcalALL = CLOSEcalALL[CLOSEcalALL.index.isin(PBcalALL.index)]
+
+    PBcalALL = PBcalALL.stack().reset_index()
+    PBcalALL.rename(columns={'level_1': 'SECNAME'}, inplace=True)
+    PBcalALL = PBcalALL.merge(indnames, on='SECNAME', how='left')
+    PBcalALL = PBcalALL.pivot_table(values=0, index='TRADE_DT', columns='行业名称')
+
+    BFcalALL = BFcalALL.stack().reset_index()
+    BFcalALL.rename(columns={'level_1': 'SECNAME'}, inplace=True)
+    BFcalALL = BFcalALL.merge(indnames, on='SECNAME', how='left')
+    BFcalALL = BFcalALL.pivot_table(values=0, index='TRADE_DT', columns='行业名称')
+
+    CLOSEcalALL = CLOSEcalALL.stack().reset_index()
+    CLOSEcalALL.rename(columns={'level_1': 'SECNAME'}, inplace=True)
+    CLOSEcalALL = CLOSEcalALL.merge(indnames, on='SECNAME', how='left')
+    CLOSEcalALL = CLOSEcalALL.pivot_table(values=0, index='TRADE_DT', columns='行业名称')
+
+    writer = pd.ExcelWriter(ind_sec_name + r'\\' + now_date + 'result.xlsx')
+    PBcalALL.to_excel(writer, sheet_name='PBcalALL')
+    BFcalALL.to_excel(writer, sheet_name='BFcalALL')
+    CLOSEcalALL.to_excel(writer, sheet_name='CLOSEcalALL')
+    writer.close()
+
+    for i in PBcalALL.columns:  # 全时段
+        print('中信三级', i)
+        get_plot_ind(PBcalALL, BFcalALL, CLOSEcalALL, pd.to_datetime(PBcalALL.index.astype(str)), i,
+                     str(PBcalALL.index[0]),
+                     ind_sec_name + now_date)
+
+    print('-----中信三级-----', now_date)
+    # else:
+    #     print('###### 无更新 ######')
+
+
+cal_citics2()
+cal_citics1()
+cal_concept()
+# # cal_citics3_ind(seid='CI005284.WI')
